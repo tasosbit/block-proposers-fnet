@@ -79,7 +79,7 @@ export async function start(dbClient: Database) {
   await server.ready();
 
   const port = 8118;
-  const host = '0.0.0.0';
+  const host = '::';
   await server.listen({ host, port });
   
   console.log("Server listening on", port);
