@@ -1,11 +1,6 @@
 {
+  "extends": "@tsconfig/node20/tsconfig.json",
   "compilerOptions": {
-    "target": "es2017",
-    "module": "nodenext",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "declaration": true,
     "outDir": "dist/"
   },
   "include": [

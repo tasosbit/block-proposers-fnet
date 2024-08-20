@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { Database } from "duckdb-async";
-import { getAllProposerCounts, getAllProposerCountsAfter, getProposerBlocksAfter, getMaxRound, countRecords, } from './db.js';
+import { getAllProposerCounts, getProposerBlocks, getMaxRound, countRecords, } from './db.js';
 import Fastify, { FastifyPluginAsync, FastifyRequest } from 'fastify'
 
 export async function start(dbClient: Database) {
@@ -35,11 +35,14 @@ export async function start(dbClient: Database) {
       return { ok: 1, maxRound, records };
     });
 
-    const minRoundQueryString = Type.Object({ minRound: Type.Optional(Type.Number()) });
+    const roundQueryString = Type.Object({
+      minRound: Type.Optional(Type.Number()),
+      maxRound: Type.Optional(Type.Number()),
+    });
 
     server.get('/v0/proposers', {
       schema: {
-        querystring: minRoundQueryString,
+        querystring: roundQueryString,
         response: {
           200: Type.Array(Type.Object({
             proposer: Type.String(),
@@ -48,12 +51,28 @@ export async function start(dbClient: Database) {
         },
       },
     }, async function (request: any) {
-      const minRound = request.query.minRound;
-      const proposers = minRound ? (await getAllProposerCountsAfter(dbClient, minRound))
-        : (await getAllProposerCounts(dbClient));
+      const minRound = request.query.minRound ?? 0;
+      const maxRound = request.query.maxRound ?? Infinity;
+      const proposers = await getAllProposerCounts(dbClient, minRound, maxRound);
       return proposers;
     });
-  };
+
+    server.get('/v0/proposer/:addr', {
+      schema: {
+        params: Type.Object({ addr: Type.String({ minLength: 58, maxLength: 58 }) }),
+        querystring: roundQueryString,
+        response: {
+          200: Type.Array(Type.Number())
+        },
+      },
+    }, async function (request: any) {
+      const addr = request.params.addr;
+      const minRound = request.query.minRound ?? 0;
+      const maxRound = request.query.maxRound ?? Infinity;
+      const proposers = await getProposerBlocks(dbClient, addr, minRound, maxRound);
+      return proposers;
+    });
+  }; 
 
   await server.register(routes);
 

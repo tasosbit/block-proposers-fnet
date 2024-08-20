@@ -51,23 +51,13 @@ export interface ProposerCount {
   blocks: number;
 }
 
-export async function getAllProposerCountsAfter(db: Database, rnd: number): Promise<ProposerCount[]> {
-  const rows = await db.all('select proposer, count(rnd) as blocks from proposers where rnd > ? group by proposer order by blocks desc', rnd);
+export async function getAllProposerCounts(db: Database, minRnd = 0, maxRnd = Infinity): Promise<ProposerCount[]> {
+  const rows = await db.all('select proposer, count(rnd) as blocks from proposers where rnd >= ? and rnd <= ? group by proposer order by blocks desc', minRnd, maxRnd);
   return rows as ProposerCount[];
 }
 
-export async function getAllProposerCounts(db: Database): Promise<ProposerCount[]> {
-  const rows = await db.all('select proposer, count(rnd) as blocks from proposers group by proposer order by blocks desc');
-  return rows as ProposerCount[];
-}
-
-export async function getProposerBlocks(db: Database, proposer: string): Promise<number[]> {
-  const rows = await db.all('select rnd from proposers where proposer = ?', proposer);
-  return rows.map(({rnd}) => rnd);
-}
-
-export async function getProposerBlocksAfter(db: Database, proposer: string, rnd: number): Promise<number[]> {
-  const rows = await db.all('select rnd from proposers where proposer = ? and rnd > ?', proposer, rnd);
+export async function getProposerBlocks(db: Database, proposer: string, minRnd = 0, maxRnd = Infinity): Promise<number[]> {
+  const rows = await db.all('select rnd from proposers where proposer = ? and rnd >= ? and rnd <= ?', proposer, minRnd, maxRnd);
   return rows.map(({rnd}) => rnd);
 }
 
