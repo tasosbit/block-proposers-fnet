@@ -5,6 +5,6 @@ import { start } from './server.js';
 
 const dbClient = await getOrCreateDB();
 
-// ingest(dbClient, algod);
+ingest(dbClient, algod);
 
 start(dbClient);
