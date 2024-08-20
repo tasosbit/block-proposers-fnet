@@ -7,6 +7,7 @@ function getClient(): Promise<Database> {
 async function createDB(db: Database) {
   console.warn("creating db");
   await db.exec("CREATE TABLE proposers(rnd INTEGER PRIMARY KEY, proposer VARCHAR)");
+  await db.exec("PRAGMA force_compression='auto'");
   // await db.exec("CREATE TABLE state(key VARCHAR PRIMARY KEY, type VARCHAR, value VARCHAR)");
   // await db.exec("INSERT INTO state VALUES ('lastRound', 'number', '1');");
 }
@@ -41,4 +42,5 @@ export async function insertProposer(db: Database, rnd: number, prop: string): P
     insertCon = await db.prepare("INSERT INTO proposers VALUES (?, ?)");
   }
   await insertCon.run(rnd, prop);
+  console.log("INSERT", rnd, prop.slice(0, 8));
 }

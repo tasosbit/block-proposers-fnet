@@ -1,13 +1,27 @@
 import { algod } from './config.js';
-import { getBlockProposer } from './algo.js';
+import { statusAfterRound, getBlockProposer } from './algo.js';
 import { getOrCreateDB, getLastRound, insertProposer, } from './db.js';
 
 const dbClient = await getOrCreateDB();
 let round = await getLastRound(dbClient);
+round = 139316;
 
+let synced = false;
 while(true) {
-  round++;
-  const prop = await getBlockProposer(algod, round);
-  await insertProposer(dbClient, round, prop);
-  console.log("INSERT", round, prop.slice(0, 8));
+  try {
+    const nextRound = round + 1;
+    const prop = await getBlockProposer(algod, nextRound);
+    await insertProposer(dbClient, nextRound, prop);
+    round++;
+  } catch(e) {
+    if ((e as Error).message.includes('failed to retrieve information from the ledger')) {
+      if (!synced) {
+        console.warn("synced");
+        synced = true;
+      }
+      await statusAfterRound(algod, round);
+    } else {
+      throw e;
+    }
+  }
 }

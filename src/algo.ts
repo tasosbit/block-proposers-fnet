@@ -9,3 +9,7 @@ export async function getLastBlock(algod: algosdk.Algodv2): Promise<number> {
   const { "last-round": lr } = await algod.status().do();
   return lr;
 }
+
+export function statusAfterRound(algod: algosdk.Algodv2, rnd: number): Promise<Record<string, any>> {
+  return algod.statusAfterBlock(rnd).do();
+}
