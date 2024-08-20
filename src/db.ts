@@ -45,3 +45,38 @@ export async function insertProposer(db: Database, rnd: number, prop: string): P
   await insertCon.run(rnd, prop);
   console.log("INSERT", rnd, prop.slice(0, 8));
 }
+
+export interface ProposerCount {
+  proposer: string;
+  blocks: number;
+}
+
+export async function getAllProposerCountsAfter(db: Database, rnd: number): Promise<ProposerCount[]> {
+  const rows = await db.all('select proposer, count(rnd) as blocks from proposers where rnd > ? group by proposer order by blocks desc', rnd);
+  return rows as ProposerCount[];
+}
+
+export async function getAllProposerCounts(db: Database): Promise<ProposerCount[]> {
+  const rows = await db.all('select proposer, count(rnd) as blocks from proposers group by proposer order by blocks desc');
+  return rows as ProposerCount[];
+}
+
+export async function getProposerBlocks(db: Database, proposer: string): Promise<number[]> {
+  const rows = await db.all('select rnd from proposers where proposer = ?', proposer);
+  return rows.map(({rnd}) => rnd);
+}
+
+export async function getProposerBlocksAfter(db: Database, proposer: string, rnd: number): Promise<number[]> {
+  const rows = await db.all('select rnd from proposers where proposer = ? and rnd > ?', proposer, rnd);
+  return rows.map(({rnd}) => rnd);
+}
+
+export async function getMaxRound(db: Database): Promise<number> {
+  const rows = await db.all('select max(rnd) as max from proposers');
+  return rows[0].max;
+}
+
+export async function countRecords(db: Database): Promise<number> {
+  const rows = await db.all('select count(*) as count from proposers');
+  return rows[0].count;
+}
