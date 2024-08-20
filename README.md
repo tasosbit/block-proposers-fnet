@@ -14,7 +14,7 @@ Deployed at: https://fnet-analytics.d13.co/
 
 Sanity check: `maxRound` and `records` (record count) should match.
 
-### Proposers' aggregate block proposal count
+### Proposers' aggregate block count
 
 [/v0/proposers](https://fnet-analytics.d13.co/v0/proposers)
 
@@ -39,7 +39,7 @@ Returns:
 
 ```
 
-Array of records containing `proposer` (address) and `blocks` (count)
+Array of records containing `proposer` (address) and `blocks` (proposed block count)
 
 Supports `?minRound=` and `?maxRound=` query parameters
 
