@@ -4,7 +4,6 @@ import { getOrCreateDB, getLastRound, insertProposer, } from './db.js';
 
 const dbClient = await getOrCreateDB();
 let round = await getLastRound(dbClient);
-round = 139316;
 
 let synced = false;
 while(true) {

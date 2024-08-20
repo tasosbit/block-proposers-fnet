@@ -1,13 +1,14 @@
 import { Database, Statement } from "duckdb-async";
 
-function getClient(): Promise<Database> {
-  return Database.create("data/db.duckdb");
+async function getClient(): Promise<Database> {
+  const db = await Database.create("data/db.duckdb");
+  await db.exec("PRAGMA force_compression='auto'");
+  return db;
 }
 
 async function createDB(db: Database) {
   console.warn("creating db");
   await db.exec("CREATE TABLE proposers(rnd INTEGER PRIMARY KEY, proposer VARCHAR)");
-  await db.exec("PRAGMA force_compression='auto'");
   // await db.exec("CREATE TABLE state(key VARCHAR PRIMARY KEY, type VARCHAR, value VARCHAR)");
   // await db.exec("INSERT INTO state VALUES ('lastRound', 'number', '1');");
 }
