@@ -2,6 +2,8 @@
 
 Deployed at: https://fnet-analytics.d13.co/
 
+API should be considered **unstable**.
+
 ## Routes
 
 ### Status
