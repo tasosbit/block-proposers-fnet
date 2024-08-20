@@ -20,6 +20,7 @@ while(true) {
       }
       await statusAfterRound(algod, round);
     } else {
+      console.error("Uncaught", (e as Error).message);
       throw e;
     }
   }
