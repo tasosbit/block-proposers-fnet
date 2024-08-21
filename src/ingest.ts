@@ -46,10 +46,9 @@ export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
 export async function backfill(dbClient: Database, algod: algosdk.Algodv2) {
   const maxRound = await getMaxRound(dbClient);
   const records = await countRecords(dbClient);
-  debugger;
   const diff = maxRound - records;
-  console.log("Backfilling, records", records, "maxRound", maxRound);
   if (diff > 0) {
+    console.log("Backfilling, records", records, "maxRound", maxRound);
     const start = maxRound - diff - 10;
     for(let rnd = start; rnd < maxRound-1; rnd++) {
       if (!(await getRoundExists(dbClient, rnd))) {
