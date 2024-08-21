@@ -22,7 +22,7 @@ async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number)
 export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
   const diff = lastLiveRound - lastDBRound;
   const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
-  const chunks = chunk(rounds, CONCURRENCY);
+  const chunks = chunk(rounds, CONCURRENCY * 5);
   for(const chunk of chunks) {
     const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: CONCURRENCY });
     const tuples: [number, string][] = proposers.map((prop, i) => ([chunk[i], prop]));
