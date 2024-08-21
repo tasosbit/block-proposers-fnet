@@ -37,6 +37,20 @@ export async function getLastRound(db: Database): Promise<number> {
   return rows[0]["max(rnd)"] ?? 0;
 }
 
+let insertCons: Record<string, Statement> = {};
+type ProposerTuple = [number, string];
+export async function insertProposers(db: Database, ...values: ProposerTuple[]): Promise<void> {
+  const num = values.length;
+  if (!(num in insertCons)) {
+    const qs = new Array(num).fill("(?, ?)").join(", ");
+    const query = "INSERT INTO proposers VALUES " + qs
+    insertCon = await db.prepare(query);
+  }
+  const dbValues = values.flat();
+  await insertCon.run(...dbValues);
+  console.log("INSERT", dbValues.map(s => String(s).slice(0, 8)).join(" "));
+}
+
 let insertCon: Statement;
 export async function insertProposer(db: Database, rnd: number, prop: string): Promise<void> {
   if (!insertCon) {

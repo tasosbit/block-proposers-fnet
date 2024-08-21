@@ -1,8 +1,8 @@
 import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
 import { statusAfterRound, getBlockProposer, getLastRound, } from './algo.js';
-import { getLastRound as getLastDBRound, insertProposer, getMaxRound, countRecords, getRoundExists, } from './db.js';
-import { sleep } from './utils.js';
+import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, } from './db.js';
+import { sleep, chunk } from './utils.js';
 import pmap from 'p-map';
 
 const CONCURRENCY = process.env.CONCURRENCY ? Number(process.env.CONCURRENCY) : 5;
@@ -22,7 +22,12 @@ async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number)
 export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
   const diff = lastLiveRound - lastDBRound;
   const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
-  await pmap(rounds, round => runBlock(dbClient, algod, round), { concurrency: CONCURRENCY });
+  const chunks = chunk(rounds, CONCURRENCY);
+  for(const chunk of chunks) {
+    const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: CONCURRENCY });
+    const tuples: [number, string][] = proposers.map((prop, i) => ([chunk[i], prop]));
+    await insertProposers(dbClient, ...tuples);
+  }
 }
 
 export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
