@@ -5,7 +5,8 @@ import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMax
 import { sleep, chunk } from './utils.js';
 import pmap from 'p-map';
 
-const CONCURRENCY = process.env.CONCURRENCY ? Number(process.env.CONCURRENCY) : 5;
+const DB_CHUNKS = process.env.DB_CHUNKS ? Number(process.env.DB_CHUNKS) : 100;
+const NET_CONCURRENCY = process.env.CONCURRENCY ? Number(process.env.CONCURRENCY) : 10;
 const SYNC_THRESHOLD = 10;
 
 export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Promise<[number, number, boolean]> {
@@ -22,9 +23,9 @@ async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number)
 export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
   const diff = lastLiveRound - lastDBRound;
   const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
-  const chunks = chunk(rounds, CONCURRENCY * 5);
+  const chunks = chunk(rounds, DB_CHUNKS);
   for(const chunk of chunks) {
-    const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: CONCURRENCY });
+    const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: NET_CONCURRENCY });
     const tuples: [number, string][] = proposers.map((prop, i) => ([chunk[i], prop]));
     await insertProposers(dbClient, ...tuples);
   }
@@ -72,7 +73,7 @@ export async function ingest(dbClient: Database, algod: algosdk.Algodv2) {
       console.log("Trailing", lastDBRound, '->', lastLiveRound, 'delta', lastLiveRound - lastDBRound);
       break;
     }
-    console.log("Syncing", lastDBRound, '->', lastLiveRound, 'delta', lastLiveRound - lastDBRound, 'concurrency', CONCURRENCY);
+    console.log("Syncing", lastDBRound, '->', lastLiveRound, 'delta', lastLiveRound - lastDBRound, 'concurrency', NET_CONCURRENCY);
     await sync(dbClient, algod, lastDBRound, lastLiveRound);
   }
   await trail(dbClient, algod);
