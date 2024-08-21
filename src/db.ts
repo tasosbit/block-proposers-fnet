@@ -68,5 +68,10 @@ export async function getMaxRound(db: Database): Promise<number> {
 
 export async function countRecords(db: Database): Promise<number> {
   const rows = await db.all('select count(*) as count from proposers');
-  return rows[0].count;
+  return Number(rows[0].count);
+}
+
+export async function getRoundExists(db: Database, rnd: number): Promise<boolean> {
+  const rows = await db.all('select rnd from proposers where rnd = ?', rnd);
+  return !!rows[0];
 }

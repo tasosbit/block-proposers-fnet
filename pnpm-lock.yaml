@@ -20,6 +20,9 @@ dependencies:
   fastify:
     specifier: ^4.28.1
     version: 4.28.1
+  p-map:
+    specifier: ^7.0.2
+    version: 7.0.2
 
 devDependencies:
   '@tsconfig/node20':
@@ -928,6 +931,11 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       aggregate-error: 3.1.0
+    dev: false
+
+  /p-map@7.0.2:
+    resolution: {integrity: sha512-z4cYYMMdKHzw4O5UkWJImbZynVIo0lSGTXc7bzB1e/rrDqkgGUNysK/o4bTr+0+xKvvLoTyGqYC4Fgljy9qe1Q==}
+    engines: {node: '>=18'}
     dev: false
 
   /path-is-absolute@1.0.1:

@@ -5,7 +5,7 @@ export async function getBlockProposer(algod: algosdk.Algodv2, rnd: number): Pro
   return algosdk.encodeAddress(oprop);
 }
 
-export async function getLastBlock(algod: algosdk.Algodv2): Promise<number> {
+export async function getLastRound(algod: algosdk.Algodv2): Promise<number> {
   const { "last-round": lr } = await algod.status().do();
   return lr;
 }
