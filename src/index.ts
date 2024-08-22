@@ -2,8 +2,11 @@ import { algod } from './config.js';
 import { getOrCreateDB, } from './db.js';
 import { ingest } from './ingest.js';
 import { start } from './server.js';
+import { getGenesisID } from './algo.js';
 
-const dbClient = await getOrCreateDB();
+const genesisID = await getGenesisID(algod);
+
+const dbClient = await getOrCreateDB(genesisID);
 
 ingest(dbClient, algod);
 

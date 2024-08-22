@@ -1,7 +1,7 @@
 import { Database, Statement } from "duckdb-async";
 
-async function getClient(): Promise<Database> {
-  const db = await Database.create("data/db.duckdb");
+async function getClient(name: string): Promise<Database> {
+  const db = await Database.create(`data/${name}.duckdb`);
   await db.exec("PRAGMA force_compression='auto'");
   return db;
 }
@@ -14,12 +14,12 @@ async function createDB(db: Database) {
 }
 
 let db: Database
-export async function getOrCreateDB(): Promise<Database> {
+export async function getOrCreateDB(name: string): Promise<Database> {
   if (db) {
     return db;
   }
   try {
-    db = await getClient();
+    db = await getClient(name);
     await db.all("select 1");
   } catch(e) {
     console.error("DB Error", e);

@@ -12,6 +12,11 @@ export async function getBlockProposer(algod: algosdk.Algodv2, rnd: number): Pro
   }
 }
 
+export async function getGenesisID(algod: algosdk.Algodv2): Promise<string> {
+  const { genesisID } = await algod.getTransactionParams().do();
+  return genesisID;
+}
+
 export async function getLastRound(algod: algosdk.Algodv2): Promise<number> {
   const { "last-round": lr } = await algod.status().do();
   return lr;
