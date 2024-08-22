@@ -25,9 +25,12 @@ export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRou
   const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
   const chunks = chunk(rounds, DB_CHUNKS);
   for(const chunk of chunks) {
+    const startTime = Date.now();
     const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: NET_CONCURRENCY });
     const tuples: [number, string][] = proposers.map((prop, i) => ([chunk[i], prop]));
     await insertProposers(dbClient, ...tuples);
+    const elapsed = Date.now() - startTime;
+    console.log('records/sec', chunk.length / elapsed * 1000);
   }
 }
 

@@ -13,8 +13,11 @@ async function createDB(db: Database) {
   // await db.exec("INSERT INTO state VALUES ('lastRound', 'number', '1');");
 }
 
+let db: Database
 export async function getOrCreateDB(): Promise<Database> {
-  let db: Database
+  if (db) {
+    return db;
+  }
   try {
     db = await getClient();
     await db.all("select 1");
@@ -89,3 +92,10 @@ export async function getRoundExists(db: Database, rnd: number): Promise<boolean
   const rows = await db.all('select rnd from proposers where rnd = ?', rnd);
   return !!rows[0];
 }
+
+process.on('SIGINT', async function() {
+  console.log("Closing DB");
+  await db.close();
+  console.log("OK");
+  process.exit(0);
+});
