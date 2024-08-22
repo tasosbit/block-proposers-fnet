@@ -8,6 +8,7 @@ import pmap from 'p-map';
 const DB_CHUNKS = process.env.DB_CHUNKS ? Number(process.env.DB_CHUNKS) : 100;
 const NET_CONCURRENCY = process.env.CONCURRENCY ? Number(process.env.CONCURRENCY) : 10;
 const SYNC_THRESHOLD = 10;
+const EMIT_SPEED_EVERY = 4;
 
 export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Promise<[number, number, boolean]> {
   const lastDBRound = await getLastDBRound(dbClient);
@@ -24,13 +25,18 @@ export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRou
   const diff = lastLiveRound - lastDBRound;
   const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
   const chunks = chunk(rounds, DB_CHUNKS);
+
+  let emitIdx=0;
+  let startTime = Date.now();
   for(const chunk of chunks) {
-    const startTime = Date.now();
     const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: NET_CONCURRENCY });
     const tuples: [number, string][] = proposers.map((prop, i) => ([chunk[i], prop]));
     await insertProposers(dbClient, ...tuples);
-    const elapsed = Date.now() - startTime;
-    console.log('records/sec', chunk.length / elapsed * 1000);
+    if (++emitIdx % EMIT_SPEED_EVERY === 0) {
+      const elapsed = Date.now() - startTime;
+      console.log('records/sec', EMIT_SPEED_EVERY * chunk.length / elapsed * 1000);
+      startTime = Date.now();
+    }
   }
 }
 
