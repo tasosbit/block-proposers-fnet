@@ -20,7 +20,7 @@ export async function start(dbClient: Database) {
   });
 
   server.register(cors, {
-    origin: false,
+    origin: '*',
   });
 
   const routes: FastifyPluginAsync = async (server) => {
