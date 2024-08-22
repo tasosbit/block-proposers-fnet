@@ -20,44 +20,64 @@ Sanity check: `maxRound` and `records` (record count) should match.
 
 [/v0/proposers](https://fnet-analytics.d13.co/v0/proposers)
 
+Supports `?minRound=` and `?maxRound=` query parameters
+
 Returns:
 
 ```
 [
   {
     "proposer": "FNETJYY6YYB6SUWQDQZ5IDWLXOTOC2TMLW45B4O6MH5LREIBEXPREYSONY",
-    "blocks": 16832
+    "blocks": 22890,
+    "payouts": 0
   },
-  {
-    "proposer": "FNETNDMRNC3GJBLZ4MM2FXL3OYA5W6ULTICOWACLYHDP4EAJWNBXSIMILE",
-    "blocks": 16624
-  },
-  {
-    "proposer": "FNET57EE5J4N7RVW3SCNGSL6SHCUENKO2GMMJCX3MMQRJKM77THEMEBANE",
-    "blocks": 16612
-  },
-  /* ... */
-]
 
+  /* ... */
+
+  {
+    "proposer": "TFILLRA755KVNLXVTFZMKJS5KSQBSJCEUERCCHNTBWCPBNL54OO3WYZRZI",
+    "blocks": 124,
+    "payouts": 1240000000
+  }
+]
 ```
 
-Array of records containing `proposer` (address) and `blocks` (proposed block count)
+Array of records with:
 
-Supports `?minRound=` and `?maxRound=` query parameters
+- `proposer` for block proposer address
+- `blocks` for total number of blocks proposed
+- `payouts` for sum of payouts received
 
 ### Proposer blocks
 
-[/v0/proposer/:address:](https://fnet-analytics.d13.co/v0/proposer/FNETJYY6YYB6SUWQDQZ5IDWLXOTOC2TMLW45B4O6MH5LREIBEXPREYSONY)
+[/v0/proposer/:address:](https://fnet-analytics.d13.co/v0/proposer/7OW3OE7WBNCV3VA5KGZZ6R2QTSXGG57ULV7466FF7ZUBUZFH5BW4JCAORA)
+
+Supports `?minRound=` and `?maxRound=` query parameters
 
 Returns:
 
 ```
-[1,16,43,68,87,88,89,91,105,106,109,113,139,141,172,178,181 /* ... */]
+[
+  {
+    "rnd": 55577,
+    "pp": 10000000
+  },
+  {
+    "rnd": 56546,
+    "pp": 10000000
+  },
+
+  /* ... */
+
+  {
+    "rnd": 13
+  },
 ```
 
-Array of numbers: block proposed by  `address`
+Array of records with:
 
-Supports `?minRound=` and `?maxRound=` query parameters
+- `rnd`  for round of block proposed
+- `pp` (optional) for payout amount 
 
 ## Environment Variables
 
@@ -66,8 +86,8 @@ Supports `?minRound=` and `?maxRound=` query parameters
 | ALGOD_TOKEN      | Algod token                                            |                         |
 | ALGOD_HOST       | Algod host                                             | https://fnet-api.d13.co |
 | ALGOD_PORT       | Algod port                                             | 443                     |
+| CONCURRENCY      | Algod block request concurrency ( = 1 "chunk" below)   | 10                      |
 | DB_CHUNKS        | Flush records to DB every n chunks                     | 100                     |
-| CONCURRENCY      | Algod block request concurrency                        | 10                      |
 | SYNC_THRESHOLD   | Threshold of block difference to trigger parallel sync | 10                      |
 | EMIT_SPEED_EVERY | Print speed to console every N processed chunks        | 4                       |
 
