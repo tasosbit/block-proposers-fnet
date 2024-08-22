@@ -70,12 +70,12 @@ export async function getAllProposerCounts(db: Database, minRnd = 0, maxRnd = In
 }
 
 interface RndPP {
-  pp: number;
   rnd: number;
+  pp?: number;
 }
 export async function getProposerBlocks(db: Database, proposer: string, minRnd = 0, maxRnd = Infinity): Promise<Array<RndPP>> {
   const rows = await db.all('select rnd, payout from proposers where proposer = ? and rnd >= ? and rnd <= ?', proposer, minRnd, maxRnd);
-  return rows.map(({rnd, payout = 0}) => ({rnd, pp: payout ?? 0}));
+  return rows.map(({rnd, payout = 0}) => ({rnd, ...payout ? {pp: payout} : null}));
 }
 
 export async function getMaxRound(db: Database): Promise<number> {

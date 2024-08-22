@@ -2,3 +2,5 @@ node_modules/
 dist/
 data/*.duckdb
 data/*.duckdb.wal
+data/*.gz
+

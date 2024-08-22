@@ -66,7 +66,7 @@ export async function start(dbClient: Database) {
         response: {
           200: Type.Array(Type.Object({
             rnd: Type.Number(),
-            pp: Type.Number(),
+            pp: Type.Optional(Type.Number()),
           })),
         },
       },
