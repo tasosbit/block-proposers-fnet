@@ -47,7 +47,8 @@ export async function start(dbClient: Database) {
         response: {
           200: Type.Array(Type.Object({
             proposer: Type.String(),
-            blocks: Type.Number()
+            blocks: Type.Number(),
+            payouts: Type.Number(),
           })),
         },
       },
@@ -63,15 +64,18 @@ export async function start(dbClient: Database) {
         params: Type.Object({ addr: Type.String({ minLength: 58, maxLength: 58 }) }),
         querystring: roundQueryString,
         response: {
-          200: Type.Array(Type.Number())
+          200: Type.Array(Type.Object({
+            rnd: Type.Number(),
+            pp: Type.Number(),
+          })),
         },
       },
     }, async function (request: any) {
       const addr = request.params.addr;
       const minRound = request.query.minRound ?? 0;
       const maxRound = request.query.maxRound ?? Infinity;
-      const proposers = await getProposerBlocks(dbClient, addr, minRound, maxRound);
-      return proposers;
+      const blocks = await getProposerBlocks(dbClient, addr, minRound, maxRound);
+      return blocks;
     });
   }; 
 

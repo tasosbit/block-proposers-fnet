@@ -1,6 +1,20 @@
 import algosdk from 'algosdk';
 import { sleep } from './utils.js';
 
+export async function getBlockProposerAndPayout(algod: algosdk.Algodv2, rnd: number): Promise<[string, number]> {
+  try {
+    const { block: { pp = 0 }, cert: { prop: { oprop } } } = await algod.block(rnd).do();
+    return [algosdk.encodeAddress(oprop), pp];
+  } catch(e) {
+    if ((e as Error).message.includes('failed to retrieve information from the ledger')) {
+      throw e;
+    }
+    console.error(`Fetch ${rnd} failed: ${(e as Error).message}`);
+    await sleep(2000);
+    return getBlockProposerAndPayout(algod, rnd);
+  }
+}
+
 export async function getBlockProposer(algod: algosdk.Algodv2, rnd: number): Promise<string> {
   try {
     const { cert: { prop: { oprop } } } = await algod.block(rnd).do();

@@ -1,6 +1,6 @@
 import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
-import { statusAfterRound, getBlockProposer, getLastRound, } from './algo.js';
+import { statusAfterRound, getBlockProposerAndPayout, getLastRound, } from './algo.js';
 import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, } from './db.js';
 import { sleep, chunk, parseEnvInt, } from './utils.js';
 import pmap from 'p-map';
@@ -17,8 +17,8 @@ export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Pro
 }
 
 async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number) {
-  const prop = await getBlockProposer(algod, rnd);
-  await insertProposer(dbClient, rnd, prop);
+  const [prop, payout] = await getBlockProposerAndPayout(algod, rnd);
+  await insertProposer(dbClient, rnd, prop, payout);
 }
 
 export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
@@ -29,8 +29,8 @@ export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRou
   let emitIdx=0;
   let startTime = Date.now();
   for(const chunk of chunks) {
-    const proposers = await pmap(chunk, round => getBlockProposer(algod, round), { concurrency: NET_CONCURRENCY });
-    const tuples: [number, string][] = proposers.map((prop, i) => ([chunk[i], prop]));
+    const proposers = await pmap(chunk, round => getBlockProposerAndPayout(algod, round), { concurrency: NET_CONCURRENCY });
+    const tuples: [number, string, number][] = proposers.map(([prop, pay], i) => ([chunk[i], prop, pay]));
     await insertProposers(dbClient, ...tuples);
     if (++emitIdx % EMIT_SPEED_EVERY === 0) {
       const elapsed = Date.now() - startTime;
@@ -51,7 +51,7 @@ export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
       if ((e as Error).message.includes('failed to retrieve information from the ledger')) {
         await statusAfterRound(algod, lastDBRound);
       } else {
-        console.error("Uncaught", (e as Error).message);
+        console.error("Uncaught while trailing", (e as Error).message);
         await sleep(1500);
       }
     }
