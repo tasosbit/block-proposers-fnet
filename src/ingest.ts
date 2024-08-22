@@ -7,8 +7,8 @@ import pmap from 'p-map';
 
 const DB_CHUNKS = parseEnvInt("DB_CHUNKS", 100);
 const NET_CONCURRENCY = parseEnvInt("CONCURRENCY", 10);
-const SYNC_THRESHOLD = 10;
-const EMIT_SPEED_EVERY = 4;
+const SYNC_THRESHOLD = parseEnvInt("SYNC_THRESHOLD", 10);
+const EMIT_SPEED_EVERY = parseEnvInt("EMIT_SPEED_EVERY", 4);
 
 export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Promise<[number, number, boolean]> {
   const lastDBRound = await getLastDBRound(dbClient);
