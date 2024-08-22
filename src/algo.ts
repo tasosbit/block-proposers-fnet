@@ -6,6 +6,9 @@ export async function getBlockProposer(algod: algosdk.Algodv2, rnd: number): Pro
     const { cert: { prop: { oprop } } } = await algod.block(rnd).do();
     return algosdk.encodeAddress(oprop);
   } catch(e) {
+    if ((e as Error).message.includes('failed to retrieve information from the ledger')) {
+      throw e;
+    }
     console.error(`Fetch ${rnd} failed: ${(e as Error).message}`);
     await sleep(2000);
     return getBlockProposer(algod, rnd);
