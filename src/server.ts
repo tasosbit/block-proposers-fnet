@@ -3,6 +3,7 @@ import { Database } from "duckdb-async";
 import { getAllProposerCounts, getProposerBlocks, getMaxRound, countRecords, } from './db.js';
 import Fastify, { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { parseEnvInt } from './utils.js';
+import cors from '@fastify/cors';
 
 export async function start(dbClient: Database) {
   const server = Fastify({
@@ -16,6 +17,10 @@ export async function start(dbClient: Database) {
     logger: {
       level: process.env.LOG_LEVEL,
     },
+  });
+
+  server.register(cors, {
+    origin: false,
   });
 
   const routes: FastifyPluginAsync = async (server) => {
