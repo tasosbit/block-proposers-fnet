@@ -13,3 +13,10 @@ export function chunk<T>(elems: T[], num=20): T[][] {
     return out;
   }, [[]] as T[][]);
 }
+
+export function parseEnvInt(name: string, _default: number): number {
+  if (process.env[name]) {
+    return Number(process.env[name]);
+  }
+  return _default;
+}

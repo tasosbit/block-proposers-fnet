@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import { Database } from "duckdb-async";
 import { getAllProposerCounts, getProposerBlocks, getMaxRound, countRecords, } from './db.js';
 import Fastify, { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import { parseEnvInt } from './utils.js';
 
 export async function start(dbClient: Database) {
   const server = Fastify({
@@ -78,7 +79,7 @@ export async function start(dbClient: Database) {
 
   await server.ready();
 
-  const port = 8118;
+  const port = parseEnvInt("PORT", 8118);
   const host = '::';
   await server.listen({ host, port });
   

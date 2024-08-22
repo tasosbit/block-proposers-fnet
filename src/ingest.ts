@@ -2,11 +2,11 @@ import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
 import { statusAfterRound, getBlockProposer, getLastRound, } from './algo.js';
 import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, } from './db.js';
-import { sleep, chunk } from './utils.js';
+import { sleep, chunk, parseEnvInt, } from './utils.js';
 import pmap from 'p-map';
 
-const DB_CHUNKS = process.env.DB_CHUNKS ? Number(process.env.DB_CHUNKS) : 100;
-const NET_CONCURRENCY = process.env.CONCURRENCY ? Number(process.env.CONCURRENCY) : 10;
+const DB_CHUNKS = parseEnvInt("DB_CHUNKS", 100);
+const NET_CONCURRENCY = parseEnvInt("CONCURRENCY", 10);
 const SYNC_THRESHOLD = 10;
 const EMIT_SPEED_EVERY = 4;
 
