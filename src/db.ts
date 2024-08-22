@@ -26,7 +26,7 @@ export async function getOrCreateDB(): Promise<Database> {
     throw e;
   }
   try {
-    await db.all("select 1 from proposers");
+    await db.all("select 1 from proposers limit 1");
     return db;
   } catch(e) {
     console.warn("db not initialized");
@@ -51,7 +51,8 @@ export async function insertProposers(db: Database, ...values: ProposerTuple[]):
   }
   const dbValues = values.flat();
   await insertCon.run(...dbValues);
-  console.log("INSERT", dbValues.map(s => String(s).slice(0, 8)).join(" "));
+  let logLine = dbValues.map(s => String(s).slice(0, 8)).join(" ").slice(0, 80);
+  console.log("INSERT", `(${values.length})`, values[0][0], values[num-1][0], logLine);
 }
 
 let insertCon: Statement;
