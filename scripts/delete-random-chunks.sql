@@ -1,0 +1,1 @@
+delete from proposers where rnd in (select p.rnd from (select rnd, 1+(random() * 5)::int8 as range from proposers order by random() limit 10) rows join proposers p on p.rnd >= rows.rnd and p.rnd < rows.rnd + rows.range);

@@ -1,7 +1,7 @@
 import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
 import { statusAfterRound, getBlockProposerAndPayout, getLastRound, } from './algo.js';
-import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, } from './db.js';
+import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, } from './db.js';
 import { sleep, chunk, parseEnvInt, } from './utils.js';
 import pmap from 'p-map';
 
@@ -21,11 +21,8 @@ async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number)
   await insertProposer(dbClient, rnd, prop, payout);
 }
 
-export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
-  const diff = lastLiveRound - lastDBRound;
-  const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
+async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: number[]) {
   const chunks = chunk(rounds, DB_CHUNKS);
-
   let emitIdx=0;
   let startTime = Date.now();
   for(const chunk of chunks) {
@@ -38,6 +35,13 @@ export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRou
       startTime = Date.now();
     }
   }
+}
+
+export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
+  const diff = lastLiveRound - lastDBRound;
+  const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
+  await syncRounds(dbClient, algod, rounds);
+  console.log("Sync done");
 }
 
 export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
@@ -59,17 +63,28 @@ export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
 }
 
 export async function backfill(dbClient: Database, algod: algosdk.Algodv2) {
-  const maxRound = await getMaxRound(dbClient);
-  const records = await countRecords(dbClient);
-  const diff = maxRound - records;
+  let maxRound = await getMaxRound(dbClient);
+  let records = await countRecords(dbClient);
+  let diff = maxRound - records;
   if (diff > 0) {
     console.log("Backfilling, records", records, "maxRound", maxRound);
-    const start = maxRound - diff - 10;
-    for(let rnd = start; rnd < maxRound-1; rnd++) {
-      if (!(await getRoundExists(dbClient, rnd))) {
-        console.log("Backfill", rnd);
-        await runBlock(dbClient, algod, rnd);
+    const missingRecords = await getMissingRounds(dbClient);
+    console.log("Missing:", missingRecords);
+    const missingRounds = [];
+    for(const { rnd, missing } of missingRecords) {
+      for(let r = rnd; r < rnd + missing; r++) {
+        missingRounds.push(r);
       }
+    }
+    console.log("Total to backfill:", missingRounds.length);
+    await syncRounds(dbClient, algod, missingRounds);
+    console.log("Backfill done");
+    maxRound = await getMaxRound(dbClient);
+    records = await countRecords(dbClient);
+    diff = maxRound - records;
+    console.log("Backfill sanity check, records", records, "maxRound", maxRound);
+    if (records !== maxRound) {
+      throw new Error("backfill failed; records missing");
     }
   }
 }

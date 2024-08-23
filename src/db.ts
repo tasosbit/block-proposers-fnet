@@ -93,6 +93,19 @@ export async function getRoundExists(db: Database, rnd: number): Promise<boolean
   return !!rows[0];
 }
 
+interface MissingRound {
+  rnd: number;
+  missing: number;
+}
+export async function getMissingRounds(db: Database): Promise<MissingRound[]> {
+  // find missing rnds
+  // returns <first missing> as rnd, <num missing> as missing
+  // e.g. if it returns [13, 1] then only round 13 is missing
+  // e.g. if it returns [13, 3] then rounds 13, 14, 15 are missing
+  const rows = await db.all('select r1+1 as rnd, missing from (select rnd r1, lead(rnd) over (order by rnd rows between current row and 1 following) as r2, r2 - r1 - 1 as missing from proposers p) x where missing > 0');
+  return rows.map(({rnd, missing}) => ({ rnd: Number(rnd), missing: Number(missing) }));
+}
+
 process.on('SIGINT', async function() {
   console.log("Closing DB");
   await db.close();
