@@ -2,7 +2,7 @@ import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
 import { statusAfterRound, getBlockProposerAndPayout, getLastRound, } from './algo.js';
 import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, } from './db.js';
-import { sleep, chunk, parseEnvInt, } from './utils.js';
+import { sleep, chunk, parseEnvInt, retryable, } from './utils.js';
 import pmap from 'p-map';
 
 const DB_CHUNKS = parseEnvInt("DB_CHUNKS", 100);
@@ -12,12 +12,12 @@ const EMIT_SPEED_EVERY = parseEnvInt("EMIT_SPEED_EVERY", 4);
 
 export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Promise<[number, number, boolean]> {
   const lastDBRound = await getLastDBRound(dbClient);
-  const lastLiveRound = await getLastRound(algod);
+  const lastLiveRound = await retryable(() => getLastRound(algod));
   return [lastDBRound, lastLiveRound, lastLiveRound - lastDBRound > SYNC_THRESHOLD];
 }
 
 async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number) {
-  const [prop, payout] = await getBlockProposerAndPayout(algod, rnd);
+  const [prop, payout] = await retryable(() => getBlockProposerAndPayout(algod, rnd));
   await insertProposer(dbClient, rnd, prop, payout);
 }
 
@@ -26,7 +26,7 @@ async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: nu
   let emitIdx=0;
   let startTime = Date.now();
   for(const chunk of chunks) {
-    const proposers = await pmap(chunk, round => getBlockProposerAndPayout(algod, round), { concurrency: NET_CONCURRENCY });
+    const proposers = await pmap(chunk, round => retryable(() => getBlockProposerAndPayout(algod, round)), { concurrency: NET_CONCURRENCY });
     const tuples: [number, string, number][] = proposers.map(([prop, pay], i) => ([chunk[i], prop, pay]));
     await insertProposers(dbClient, ...tuples);
     if (++emitIdx % EMIT_SPEED_EVERY === 0) {
@@ -53,7 +53,7 @@ export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
       lastDBRound++;
     } catch(e) {
       if ((e as Error).message.includes('failed to retrieve information from the ledger')) {
-        await statusAfterRound(algod, lastDBRound);
+        await retryable(() => statusAfterRound(algod, lastDBRound));
       } else {
         console.error("Uncaught while trailing", (e as Error).message);
         await sleep(1500);
