@@ -21,14 +21,16 @@ export function parseEnvInt(name: string, _default: number): number {
   return _default;
 }
 
-export async function retryable<T>(fn: () => Promise<T>, maxTries=3, tries=0): Promise<T> {
+export async function retryable<T>(fn: () => Promise<T>, maxTries=3, waitFor=2800, tries=0): Promise<T> {
   try {
     return await fn();
   } catch(e) {
     if (tries < maxTries) {
-      console.warn(`Retryable error (tries=${tries}): ${(e as Error).message}`);
-      await sleep(2000);
-      return retryable(fn, maxTries, tries+1);
+      if (tries > 0) {
+        console.warn(`Retryable error (retries=${tries}): ${(e as Error).message}`);
+      }
+      await sleep(waitFor);
+      return retryable(fn, maxTries, waitFor, tries+1);
     } else {
       throw e;
     }
