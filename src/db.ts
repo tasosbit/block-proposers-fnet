@@ -105,10 +105,3 @@ export async function getMissingRounds(db: Database): Promise<MissingRound[]> {
   const rows = await db.all('select r1+1 as rnd, missing from (select rnd r1, lead(rnd) over (order by rnd rows between current row and 1 following) as r2, r2 - r1 - 1 as missing from proposers p) x where missing > 0');
   return rows.map(({rnd, missing}) => ({ rnd: Number(rnd), missing: Number(missing) }));
 }
-
-process.on('SIGINT', async function() {
-  console.log("Closing DB");
-  await db.close();
-  console.log("OK");
-  process.exit(0);
-});
