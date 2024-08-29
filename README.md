@@ -4,6 +4,14 @@ Deployed at: https://fnet-analytics.d13.co/
 
 API should be considered **unstable**.
 
+## Getting Started
+
+Install dependencies with `pnpm install`
+
+Run the start script with the genesis ID as the argument:
+
+`npm run start -- fnet-v1`
+
 ## Routes
 
 ### Status
@@ -83,6 +91,7 @@ Array of records with:
 
 | name             | description                                            | default_value           |
 | ---------------- | ------------------------------------------------------ | ----------------------- |
+| PORT             | HTTP server port                                       | 8118                    |
 | ALGOD_TOKEN      | Algod token                                            |                         |
 | ALGOD_HOST       | Algod host                                             | https://fnet-api.d13.co |
 | ALGOD_PORT       | Algod port                                             | 443                     |
