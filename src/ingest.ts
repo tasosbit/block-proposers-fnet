@@ -1,7 +1,7 @@
 import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
 import { statusAfterRound, getBlockDetails, getLastRound, } from './algo.js';
-import { getLastRound as getLastDBRound, insertVoters, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, } from './db.js';
+import { getLastRound as getLastDBRound, insertVoters, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, runVoteCleanup, } from './db.js';
 import { sleep, chunk, retryable, } from './utils.js';
 import { SYNC_THRESHOLD, DB_CHUNKS, VOTE_ROUNDS_THRESHOLD, NET_CONCURRENCY, EMIT_SPEED_EVERY, } from './config.js';
 import pmap from 'p-map';
@@ -16,6 +16,9 @@ async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number)
   const { proposer: prop, payout, voters } = await retryable(() => getBlockDetails(algod, rnd));
   await insertProposer(dbClient, rnd, prop, payout);
   await insertVoters(dbClient, voters.map(v => [rnd, v]));
+  if (rnd % 100 == 0) {
+    await runVoteCleanup();
+  }
 }
 
 async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: number[]) {
