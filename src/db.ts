@@ -66,7 +66,7 @@ export async function insertProposer(db: Database, rnd: number, prop: string, pa
 let delStatement: Statement;
 export async function runVoteCleanup() {
   if (!delStatement) {
-    const query = `delete from voters where rnd < (select max(rnd) from voters) - VOTE_ROUNDS_THRESHOLD`;
+    const query = `delete from voters where rnd < (select max(rnd) from voters) - ${VOTE_ROUNDS_THRESHOLD}`;
     delStatement = await db.prepare(query);
   }
   await delStatement.run();
