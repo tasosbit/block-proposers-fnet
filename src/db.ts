@@ -1,5 +1,6 @@
 import { Database, Statement } from "duckdb-async";
 import { encodeAddress, decodeAddress } from "algosdk";
+import { chunk } from './utils.js';
 
 async function getClient(name: string): Promise<Database> {
   const db = await Database.create(`data/${name}.duckdb`);
@@ -9,7 +10,7 @@ async function getClient(name: string): Promise<Database> {
 
 async function createDB(db: Database) {
   console.warn("creating db");
-  await db.exec("CREATE TABLE proposers(rnd UINT64 PRIMARY KEY, proposer VARCHAR, payout UINT64)");
+  await db.exec("CREATE TABLE proposers(rnd UINT64 PRIMARY KEY, proposer blob, payout UINT64)");
 }
 
 let db: Database
@@ -40,7 +41,10 @@ export async function getLastRound(db: Database): Promise<number> {
     return Number(rows[0]["max(rnd)"]);
   return 0;
 }
-
+function decodeProposer(prop: string): string {
+  const hex = Buffer.from(decodeAddress(prop).publicKey).toString('hex');
+  return chunk(hex.split(""), 2).map(arr => `\\x${arr.join('')}`).join('');
+}
 let insertCons: Record<string, Statement> = {};
 type ProposerTuple = [number, string, number];
 export async function insertProposers(db: Database, ...values: ProposerTuple[]): Promise<void> {
@@ -50,7 +54,7 @@ export async function insertProposers(db: Database, ...values: ProposerTuple[]):
     const query = "INSERT INTO proposers VALUES " + qs
     insertCons[num] = await db.prepare(query);
   }
-  const dbValues = values.map(([rnd, prop, pp]) => ([rnd, decodeAddress(prop).publicKey, pp])).flat();
+  const dbValues = values.map(([rnd, prop, pp]) => ([rnd, decodeProposer(prop), pp])).flat();
   await insertCons[num].run(...dbValues);
   let logLine = dbValues.map(s => String(s).slice(0, 8)).join(" ").slice(0, 80);
   console.log("INSERT", `(${values.length})`, values[0][0], values[num-1][0], logLine);
@@ -75,6 +79,7 @@ function objEncodeProposer(obj: { proposer: Uint8Array }) {
 
 export async function getAllProposerCounts(db: Database, minRnd = 0, maxRnd = Infinity): Promise<ProposerCount[]> {
   const rows = await db.all('select proposer, count(rnd) as blocks, sum(payout) as payouts from proposers where rnd >= ? and rnd <= ? group by proposer order by blocks desc', minRnd, maxRnd);
+  debugger;
   return rows.map(objEncodeProposer as any) as ProposerCount[];
 }
 
@@ -83,7 +88,8 @@ interface RndPP {
   pp?: number;
 }
 export async function getProposerBlocks(db: Database, proposer: string, minRnd = 0, maxRnd = Infinity): Promise<Array<RndPP>> {
-  const rows = await db.all('select rnd, payout from proposers where proposer = ? and rnd >= ? and rnd <= ?', decodeAddress(proposer).publicKey, minRnd, maxRnd);
+  debugger;
+  const rows = await db.all('select rnd, payout from proposers where proposer = ? and rnd >= ? and rnd <= ?', decodeProposer(proposer), minRnd, maxRnd);
   return rows.map(({rnd, payout = 0}) => ({rnd, ...payout ? {pp: payout} : null}));
 }
 
