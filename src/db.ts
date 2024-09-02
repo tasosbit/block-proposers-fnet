@@ -56,7 +56,7 @@ export async function insertProposers(db: Database, ...values: ProposerTuple[]):
   }
   const dbValues = values.map(([rnd, prop, pp]) => ([rnd, decodeProposer(prop), pp])).flat();
   await insertCons[num].run(...dbValues);
-  let logLine = dbValues.map(s => String(s).slice(0, 8)).join(" ").slice(0, 80);
+  let logLine = values.flat().map(s => String(s).slice(0, 8)).join(" ").slice(0, 80);
   console.log("INSERT", `(${values.length})`, values[0][0], values[num-1][0], logLine);
 }
 
