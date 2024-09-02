@@ -36,3 +36,9 @@ export async function retryable<T>(fn: () => Promise<T>, maxTries=3, waitFor=280
     }
   }
 }
+
+export function unique<T>(arr: T[]): T[] {
+  const s = new Set(arr);
+  // @ts-ignore
+  return [...s];
+}

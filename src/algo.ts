@@ -1,14 +1,20 @@
 import algosdk from 'algosdk';
 import { sleep } from './utils.js';
 
-export async function getBlockProposerAndPayout(algod: algosdk.Algodv2, rnd: number): Promise<[string, number]> {
-  const { block: { pp = 0 }, cert: { prop: { oprop } } } = await algod.block(rnd).do();
-  return [algosdk.encodeAddress(oprop), pp];
+interface BlockResult {
+  proposer: string;
+  payout: number;
+  voters: string[];
 }
 
-export async function getBlockProposer(algod: algosdk.Algodv2, rnd: number): Promise<string> {
-  const { cert: { prop: { oprop } } } = await algod.block(rnd).do();
-  return algosdk.encodeAddress(oprop);
+export async function getBlockDetails(algod: algosdk.Algodv2, rnd: number): Promise<BlockResult> {
+  const { block: { pp = 0 }, cert: { prop: { oprop }, vote } } = await algod.block(rnd).do();
+  const voters = vote.map(({snd}: any) => algosdk.encodeAddress(snd));
+  return {
+    proposer: algosdk.encodeAddress(oprop),
+    payout: pp,
+    voters,
+  }
 }
 
 export async function getGenesisID(algod: algosdk.Algodv2): Promise<string> {

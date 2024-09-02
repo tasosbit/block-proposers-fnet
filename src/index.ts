@@ -24,8 +24,10 @@ start(dbClient);
 
 process.on('SIGINT', handleExit);
 process.on('SIGTERM', handleExit);
+process.on('uncaughtException', handleExit);
 
-async function handleExit() {
+async function handleExit(e: any) {
+  console.log(e);
   console.log("Closing DB");
   await dbClient.close();
   console.log("OK");

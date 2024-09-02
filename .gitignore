@@ -3,4 +3,4 @@ dist/
 data/*.duckdb
 data/*.duckdb.wal
 data/*.gz
-
+data/*.pid

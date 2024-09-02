@@ -1,14 +1,10 @@
 import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
-import { statusAfterRound, getBlockProposerAndPayout, getLastRound, } from './algo.js';
-import { getLastRound as getLastDBRound, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, } from './db.js';
-import { sleep, chunk, parseEnvInt, retryable, } from './utils.js';
+import { statusAfterRound, getBlockDetails, getLastRound, } from './algo.js';
+import { getLastRound as getLastDBRound, insertVoters, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, } from './db.js';
+import { sleep, chunk, retryable, } from './utils.js';
+import { SYNC_THRESHOLD, DB_CHUNKS, VOTE_ROUNDS_THRESHOLD, NET_CONCURRENCY, EMIT_SPEED_EVERY, } from './config.js';
 import pmap from 'p-map';
-
-const DB_CHUNKS = parseEnvInt("DB_CHUNKS", 100);
-const NET_CONCURRENCY = parseEnvInt("CONCURRENCY", 10);
-const SYNC_THRESHOLD = parseEnvInt("SYNC_THRESHOLD", 10);
-const EMIT_SPEED_EVERY = parseEnvInt("EMIT_SPEED_EVERY", 4);
 
 export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Promise<[number, number, boolean]> {
   const lastDBRound = await getLastDBRound(dbClient);
@@ -17,21 +13,32 @@ export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Pro
 }
 
 async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number) {
-  const [prop, payout] = await retryable(() => getBlockProposerAndPayout(algod, rnd));
+  const { proposer: prop, payout, voters } = await retryable(() => getBlockDetails(algod, rnd));
   await insertProposer(dbClient, rnd, prop, payout);
+  await insertVoters(dbClient, voters.map(v => [rnd, v]));
 }
 
 async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: number[]) {
   const chunks = chunk(rounds, DB_CHUNKS);
+  const lastVoteRound = rounds[rounds.length - 1];
+  const firstVoteRound = lastVoteRound - VOTE_ROUNDS_THRESHOLD;
   let emitIdx=0;
   let startTime = Date.now();
-  for(const chunk of chunks) {
-    const proposers = await pmap(chunk, round => retryable(() => getBlockProposerAndPayout(algod, round)), { concurrency: NET_CONCURRENCY });
-    const tuples: [number, string, number][] = proposers.map(([prop, pay], i) => ([chunk[i], prop, pay]));
-    await insertProposers(dbClient, ...tuples);
+  for(const _chunk of chunks) {
+    const blockData = await pmap(_chunk, round => retryable(() => getBlockDetails(algod, round)), { concurrency: NET_CONCURRENCY });
+    const tuples: [number, string, number][] = blockData.map(({ proposer, payout }, i) => ([_chunk[i], proposer, payout]));
+    const voterTuples: [number, string][] = blockData.flatMap(({ voters }, i) => voters
+      .filter(() => _chunk[i] >= firstVoteRound)
+      .map(v => ([_chunk[i], v]))) as any;
+    const voterChunks = chunk(voterTuples, DB_CHUNKS);
+    debugger;
+    await Promise.all([
+      insertProposers(dbClient, ...tuples),
+      ...voterChunks.map(vc => { debugger; return vc.length ? insertVoters(dbClient, vc) : null }),
+    ]);
     if (++emitIdx % EMIT_SPEED_EVERY === 0) {
       const elapsed = Date.now() - startTime;
-      console.log('records/sec', EMIT_SPEED_EVERY * chunk.length / elapsed * 1000);
+      console.log('records/sec', EMIT_SPEED_EVERY * _chunk.length / elapsed * 1000);
       startTime = Date.now();
     }
   }
