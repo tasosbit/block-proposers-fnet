@@ -1,7 +1,7 @@
 import algosdk from 'algosdk';
 import { Database, } from "duckdb-async";
 import { statusAfterRound, getBlockDetails, getLastRound, } from './algo.js';
-import { getLastRound as getLastDBRound, insertVoters, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, runVoteCleanup, } from './db.js';
+import { getLastRound as getLastDBRound, insertEvictions, insertVoters, insertProposer, insertProposers, getMaxRound, countRecords, getRoundExists, getMissingRounds, runVoteCleanup, } from './db.js';
 import { sleep, chunk, retryable, } from './utils.js';
 import { SYNC_THRESHOLD, DB_CHUNKS, VOTE_ROUNDS_THRESHOLD, NET_CONCURRENCY, EMIT_SPEED_EVERY, } from './config.js';
 import pmap from 'p-map';
@@ -13,9 +13,12 @@ export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Pro
 }
 
 async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number) {
-  const { proposer: prop, payout, voters } = await retryable(() => getBlockDetails(algod, rnd));
+  const { proposer: prop, payout, voters, evictions } = await retryable(() => getBlockDetails(algod, rnd));
   await insertProposer(dbClient, rnd, prop, payout);
   await insertVoters(dbClient, voters.map(v => [rnd, v]));
+  if (evictions.length) {
+    await insertEvictions(dbClient, rnd, evictions);
+  }
   if (rnd % 100 == 0) {
     await runVoteCleanup();
   }
@@ -33,11 +36,15 @@ async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: nu
     const voterTuples: [number, string][] = blockData.flatMap(({ voters }, i) => voters
       .filter(() => _chunk[i] >= firstVoteRound)
       .map(v => ([_chunk[i], v]))) as any;
+    const evictionTuples: [number, string[]][] = blockData
+      .map(({ evictions }, i) => ([_chunk[i], evictions] as [number, string[]]))
+      .filter(([rnd, e]) => !!e.length)
+
     const voterChunks = chunk(voterTuples, DB_CHUNKS);
-    debugger;
     await Promise.all([
       insertProposers(dbClient, ...tuples),
-      ...voterChunks.map(vc => { debugger; return vc.length ? insertVoters(dbClient, vc) : null }),
+      ...voterChunks.map(vc => vc.length ? insertVoters(dbClient, vc) : null),
+      ...evictionTuples.map(et => et.length ? insertEvictions(dbClient, et[0], et[1]) : null)
     ]);
     if (++emitIdx % EMIT_SPEED_EVERY === 0) {
       const elapsed = Date.now() - startTime;

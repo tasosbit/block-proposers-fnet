@@ -12,6 +12,12 @@ async function createDB(db: Database) {
   console.warn("creating db");
   await db.exec("CREATE TABLE proposers(rnd UINT64 PRIMARY KEY, proposer VARCHAR, payout UINT64)");
   await db.exec("CREATE TABLE voters(rnd UINT64, voter VARCHAR)");
+  await createEvictionsTable(db);
+}
+
+async function createEvictionsTable(db: Database) {
+  console.warn("creating db");
+  await db.exec("CREATE TABLE evictions(rnd UINT64, account VARCHAR)");
 }
 
 let db: Database
@@ -28,11 +34,18 @@ export async function getOrCreateDB(name: string): Promise<Database> {
   }
   try {
     await db.all("select 1 from proposers limit 1");
-    return db;
   } catch(e) {
     console.warn("db not initialized");
+    await createDB(db);
+    return db;
   }
-  await createDB(db);
+  try {
+    await db.all("select 1 from evictions limit 1");
+    return db;
+  } catch(e) {
+    console.warn("evictions table not initialized, creating");
+    await createEvictionsTable(db);
+  }
   return db;
 }
 
@@ -61,6 +74,27 @@ export async function insertProposers(db: Database, ...values: ProposerTuple[]):
 
 export async function insertProposer(db: Database, rnd: number, prop: string, pay: number): Promise<void> {
   return insertProposers(db, [rnd, prop, pay]);
+}
+
+let insertEvictionCons: Record<string, Statement> = {};
+type EvictionTuple = [number, string];
+export async function insertEvictions(db: Database, rnd: number, evicted: string[]): Promise<void> {
+  debugger;
+  const num = evicted.length;
+  if (!(num in insertEvictionCons)) {
+    const qs = new Array(num).fill("(?, ?)").join(", ");
+    const query = "INSERT INTO evictions VALUES " + qs
+    insertEvictionCons[num] = await db.prepare(query);
+    console.warn("Making new insertEvictions query", num, query);
+  }
+  const dbValues = evicted.flatMap(acct => ([rnd, acct]));
+  await insertEvictionCons[num].run(...dbValues);
+  let logLine = dbValues.map(s => String(s).slice(0, 8)).join(" ").slice(0, 80);
+  console.log("INSERT evictions", rnd, evicted.length, evicted.map(acct => acct.slice(0, 0)));
+}
+
+export async function insertEviction(db: Database, rnd: number, acct: string): Promise<void> {
+  return insertEvictions(db, rnd, [acct]);
 }
 
 let delStatement: Statement;
@@ -120,6 +154,21 @@ interface RndPP {
 export async function getProposerBlocks(db: Database, proposer: string, minRnd = 0, maxRnd = Infinity): Promise<Array<RndPP>> {
   const rows = await db.all('select rnd, payout from proposers where proposer = ? and rnd >= ? and rnd <= ?', proposer, minRnd, maxRnd);
   return rows.map(({rnd, payout = 0}) => ({rnd, ...payout ? {pp: payout} : null}));
+}
+
+export interface EvictionCount {
+  account: string;
+  evictions: number;
+}
+
+export async function getAllEvictionCounts(db: Database, minRnd = 0, maxRnd = Infinity): Promise<EvictionCount[]> {
+  const rows = await db.all('select account, count(rnd) as evictions from evictions where rnd >= ? and rnd <= ? group by account order by evictions desc', minRnd, maxRnd);
+  return rows as EvictionCount[];
+}
+
+export async function getEvictionBlocks(db: Database, account: string, minRnd = 0, maxRnd = Infinity): Promise<Array<number>> {
+  const rows = await db.all('select rnd from evictions where account = ? and rnd >= ? and rnd <= ?', account, minRnd, maxRnd);
+  return rows.map(({rnd}) => rnd);
 }
 
 export async function getMaxRound(db: Database): Promise<number> {

@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { Database } from "duckdb-async";
-import { getAllProposerCounts, getProposerBlocks, getMaxRound, countRecords, getAllVoterCounts, getVoterBlocks, } from './db.js';
+import { getAllProposerCounts, getAllEvictionCounts, getEvictionBlocks, getProposerBlocks, getMaxRound, countRecords, getAllVoterCounts, getVoterBlocks, } from './db.js';
 import Fastify, { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { parseEnvInt } from './utils.js';
 import cors from '@fastify/cors';
@@ -79,6 +79,39 @@ export async function start(dbClient: Database) {
       const maxRound = request.query.maxRound ?? Infinity;
       const proposers = await getAllProposerCounts(dbClient, minRound, maxRound);
       return proposers;
+    });
+
+    server.get('/v0/evictions', {
+      schema: {
+        querystring: roundQueryString,
+        response: {
+          200: Type.Array(Type.Object({
+            account: Type.String(),
+            evictions: Type.Number(),
+          })),
+        },
+      },
+    }, async function (request: any) {
+      const minRound = request.query.minRound ?? 0;
+      const maxRound = request.query.maxRound ?? Infinity;
+      const proposers = await getAllEvictionCounts(dbClient, minRound, maxRound);
+      return proposers;
+    });
+
+    server.get('/v0/evictions/:addr', {
+      schema: {
+        params: Type.Object({ addr: Type.String({ minLength: 58, maxLength: 58 }) }),
+        querystring: roundQueryString,
+        response: {
+          200: Type.Array(Type.Number())
+        }
+      },
+    }, async function (request: any) {
+      const addr = request.params.addr;
+      const minRound = request.query.minRound ?? 0;
+      const maxRound = request.query.maxRound ?? Infinity;
+      const blocks = await getEvictionBlocks(dbClient, addr, minRound, maxRound);
+      return blocks;
     });
 
     server.get('/v0/voter/:addr', {

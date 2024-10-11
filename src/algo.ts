@@ -5,15 +5,17 @@ interface BlockResult {
   proposer: string;
   payout: number;
   voters: string[];
+  evictions: string[];
 }
 
 export async function getBlockDetails(algod: algosdk.Algodv2, rnd: number): Promise<BlockResult> {
-  const { block: { pp = 0 }, cert: { prop: { oprop }, vote } } = await algod.block(rnd).do();
+  const { block: { pp = 0, partupdabs = [] }, cert: { prop: { oprop }, vote } } = await algod.block(rnd).do();
   const voters = vote.map(({snd}: any) => algosdk.encodeAddress(snd));
   return {
     proposer: algosdk.encodeAddress(oprop),
     payout: pp,
     voters,
+    evictions: partupdabs.map((raw: Uint8Array) => algosdk.encodeAddress(raw)),
   }
 }
 
