@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import { Database } from "duckdb-async";
-import { getAllProposerCounts, getAllEvictionCounts, getEvictionBlocks, getProposerBlocks, getMaxRound, countRecords, getAllVoterCounts, getVoterBlocks, } from './db.js';
-import Fastify, { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import { getAllProposerCounts, getEvictionBlocks, getProposerBlocks, getMaxRound, countRecords, getAllVoterCounts, getVoterBlocks, getAllEvictions, } from './db.js';
+import Fastify, { FastifyPluginAsync } from 'fastify'
 import { parseEnvInt } from './utils.js';
 import cors from '@fastify/cors';
 
@@ -88,13 +88,14 @@ export async function start(dbClient: Database) {
           200: Type.Array(Type.Object({
             account: Type.String(),
             evictions: Type.Number(),
+            rounds: Type.Array(Type.Number()),
           })),
         },
       },
     }, async function (request: any) {
       const minRound = request.query.minRound ?? 0;
       const maxRound = request.query.maxRound ?? Infinity;
-      const proposers = await getAllEvictionCounts(dbClient, minRound, maxRound);
+      const proposers = await getAllEvictions(dbClient, minRound, maxRound);
       return proposers;
     });
 

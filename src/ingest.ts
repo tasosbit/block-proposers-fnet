@@ -87,7 +87,7 @@ export async function backfill(dbClient: Database, algod: algosdk.Algodv2) {
     console.log("Backfilling, records", records, "maxRound", maxRound);
     const missingRecords = await getMissingRounds(dbClient);
     console.log("Missing:", missingRecords);
-    const missingRounds = [];
+    const missingRounds: number[] = [];
     for(const { rnd, missing } of missingRecords) {
       for(let r = rnd; r < rnd + missing; r++) {
         missingRounds.push(r);

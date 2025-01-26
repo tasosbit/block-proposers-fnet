@@ -159,11 +159,17 @@ export async function getProposerBlocks(db: Database, proposer: string, minRnd =
 export interface EvictionCount {
   account: string;
   evictions: number;
+  rounds: number[];
 }
 
-export async function getAllEvictionCounts(db: Database, minRnd = 0, maxRnd = Infinity): Promise<EvictionCount[]> {
-  const rows = await db.all('select account, count(rnd) as evictions from evictions where rnd >= ? and rnd <= ? group by account order by evictions desc', minRnd, maxRnd);
-  return rows as EvictionCount[];
+export async function getAllEvictions(db: Database, minRnd = 0, maxRnd = Infinity): Promise<EvictionCount[]> {
+  const rows = await db.all('select account, rnd from evictions where rnd >= ? and rnd <= ? order by rnd desc', minRnd, maxRnd);
+  return Object.values(rows.reduce((out, {account, rnd}) => {
+    let existing = out[account] ?? (out[account] = { account, evictions: 0, rounds: [] });
+    existing.evictions++
+    existing.rounds.push(rnd)
+    return out;
+  }, {} as any)) as EvictionCount[];
 }
 
 export async function getEvictionBlocks(db: Database, account: string, minRnd = 0, maxRnd = Infinity): Promise<Array<number>> {
