@@ -156,6 +156,17 @@ export async function getProposerBlocks(db: Database, proposer: string, minRnd =
   return rows.map(({rnd, payout = 0}) => ({rnd, ...payout ? {pp: payout} : null}));
 }
 
+interface AcctRndPP {
+  proposer: string;
+  rnd: number;
+  pp?: number;
+}
+export async function getHighestPayouts(db: Database, minRnd = 0, maxRnd = Infinity, limit = 10): Promise<AcctRndPP[]> {
+  if (limit > 100)
+    throw new Error("too high");
+  const rows = await db.all('select proposer, rnd, payout as pp from proposers where rnd >= ? and rnd <= ? order by pp desc limit ?', minRnd, maxRnd, limit);
+  return rows as AcctRndPP[];
+}
 export interface EvictionCount {
   account: string;
   evictions: number;

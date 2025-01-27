@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { Database } from "duckdb-async";
-import { getAllProposerCounts, getEvictionBlocks, getProposerBlocks, getMaxRound, countRecords, getAllVoterCounts, getVoterBlocks, getAllEvictions, } from './db.js';
+import { getAllProposerCounts, getEvictionBlocks, getProposerBlocks, getMaxRound, countRecords, getAllVoterCounts, getVoterBlocks, getAllEvictions, getHighestPayouts } from './db.js';
 import Fastify, { FastifyPluginAsync } from 'fastify'
 import { parseEnvInt } from './utils.js';
 import cors from '@fastify/cors';
@@ -61,6 +61,25 @@ export async function start(dbClient: Database) {
       const maxRound = request.query.maxRound ?? Infinity;
       const voters = await getAllVoterCounts(dbClient, minRound, maxRound);
       return voters;
+    });
+
+    server.get('/v0/payouts/highest', {
+      schema: {
+        querystring: roundQueryString,
+        response: {
+          200: Type.Array(Type.Object({
+            proposer: Type.String(),
+            rnd: Type.Number(),
+            pp: Type.Number(),
+          })),
+        },
+      },
+    }, async function (request: any) {
+      const minRound = request.query.minRound ?? 0;
+      const maxRound = request.query.maxRound ?? Infinity;
+      const limit = 10;
+      const payouts = await getHighestPayouts(dbClient, minRound, maxRound, limit);
+      return payouts;
     });
 
     server.get('/v0/proposers', {
