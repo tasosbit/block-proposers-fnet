@@ -56,6 +56,13 @@ export async function getLastRound(db: Database): Promise<number> {
   return 0;
 }
 
+let existsStatement: Statement;
+export async function existsAddress(db: Database, address: string): Promise<boolean> {
+  const res = await db.all('select (exists(select 1 from voters where voter = $1) or exists(select 1 from proposers where proposer = $1)) as exists', address);
+  console.log({ res });
+  return res[0].exists;
+}
+
 let insertCons: Record<string, Statement> = {};
 type ProposerTuple = [number, string, number];
 export async function insertProposers(db: Database, ...values: ProposerTuple[]): Promise<void> {
