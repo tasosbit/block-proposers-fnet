@@ -10,7 +10,7 @@ async function getClient(name: string): Promise<Database> {
 
 async function createDB(db: Database) {
   console.warn("creating db");
-  await db.exec("CREATE TABLE proposers(rnd UINT64 PRIMARY KEY, proposer VARCHAR, payout UINT64)");
+  await db.exec("CREATE TABLE proposers(rnd UINT64 PRIMARY KEY, ts UINT32, proposer VARCHAR, payout UINT64)");
   await db.exec("CREATE TABLE voters(rnd UINT64, voter VARCHAR)");
   await createEvictionsTable(db);
 }
@@ -64,11 +64,11 @@ export async function existsAddress(db: Database, address: string): Promise<bool
 }
 
 let insertCons: Record<string, Statement> = {};
-type ProposerTuple = [number, string, number];
+type ProposerTuple = [number, number, string, number];
 export async function insertProposers(db: Database, ...values: ProposerTuple[]): Promise<void> {
   const num = values.length;
   if (!(num in insertCons)) {
-    const qs = new Array(num).fill("(?, ?, ?)").join(", ");
+    const qs = new Array(num).fill("(?, ?, ?, ?)").join(", ");
     const query = "INSERT INTO proposers VALUES " + qs
     insertCons[num] = await db.prepare(query);
     console.warn("Making new insertProposers query", num);
@@ -79,8 +79,8 @@ export async function insertProposers(db: Database, ...values: ProposerTuple[]):
   console.log("INSERT proposers", `(${values.length})`, values[0][0], values[num-1][0], logLine);
 }
 
-export async function insertProposer(db: Database, rnd: number, prop: string, pay: number): Promise<void> {
-  return insertProposers(db, [rnd, prop, pay]);
+export async function insertProposer(db: Database, rnd: number, ts: number, prop: string, pay: number): Promise<void> {
+  return insertProposers(db, [rnd, ts, prop, pay]);
 }
 
 let insertEvictionCons: Record<string, Statement> = {};
@@ -156,22 +156,31 @@ export async function getAllProposerCounts(db: Database, minRnd = 0, maxRnd = In
 
 interface RndPP {
   rnd: number;
+  ts: number;
   pp?: number;
 }
 export async function getProposerBlocks(db: Database, proposer: string, minRnd = 0, maxRnd = Infinity): Promise<Array<RndPP>> {
-  const rows = await db.all('select rnd, payout from proposers where proposer = ? and rnd >= ? and rnd <= ?', proposer, minRnd, maxRnd);
-  return rows.map(({rnd, payout = 0}) => ({rnd, ...payout ? {pp: payout} : null}));
+  const rows = await db.all('select rnd, ts, payout from proposers where proposer = ? and rnd >= ? and rnd <= ?', proposer, minRnd, maxRnd);
+  return rows.map(({rnd, ts, payout = 0}) => ({rnd, ts, ...payout ? {pp: payout} : null}));
+}
+
+export async function getRounds(db: Database, minRnd=0, maxRnd=0): Promise<Array<AcctRndPP>> {
+  console.time('D')
+  const rows = await db.all('select rnd, ts, proposer, payout from proposers where rnd >= ? and rnd <= ?', minRnd, maxRnd);
+  console.timeEnd('D')
+  return rows.map(({rnd, ts, proposer, payout = 0}) => ({rnd, ts, proposer, ...payout ? {pp: payout} : null}));
 }
 
 interface AcctRndPP {
   proposer: string;
   rnd: number;
+  ts: number;
   pp?: number;
 }
 export async function getHighestPayouts(db: Database, minRnd = 0, maxRnd = Infinity, limit = 10): Promise<AcctRndPP[]> {
   if (limit > 100)
     throw new Error("too high");
-  const rows = await db.all('select proposer, rnd, payout as pp from proposers where rnd >= ? and rnd <= ? order by pp desc limit ?', minRnd, maxRnd, limit);
+  const rows = await db.all('select proposer, rnd, ts, payout as pp from proposers where rnd >= ? and rnd <= ? order by pp desc limit ?', minRnd, maxRnd, limit);
   return rows as AcctRndPP[];
 }
 export interface EvictionCount {

@@ -13,8 +13,8 @@ export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Pro
 }
 
 async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number) {
-  const { proposer: prop, payout, voters, evictions } = await retryable(() => getBlockDetails(algod, rnd));
-  await insertProposer(dbClient, rnd, prop, payout);
+  const { proposer: prop, ts, payout, voters, evictions } = await retryable(() => getBlockDetails(algod, rnd));
+  await insertProposer(dbClient, rnd, ts, prop, payout);
   await insertVoters(dbClient, voters.map(v => [rnd, v]));
   if (evictions.length) {
     await insertEvictions(dbClient, rnd, evictions);
@@ -32,7 +32,7 @@ async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: nu
   let startTime = Date.now();
   for(const _chunk of chunks) {
     const blockData = await pmap(_chunk, round => retryable(() => getBlockDetails(algod, round)), { concurrency: NET_CONCURRENCY });
-    const tuples: [number, string, number][] = blockData.map(({ proposer, payout }, i) => ([_chunk[i], proposer, payout]));
+    const tuples: [number, number, string, number][] = blockData.map(({ proposer, ts, payout }, i) => ([_chunk[i], ts, proposer, payout]));
     const voterTuples: [number, string][] = blockData.flatMap(({ voters }, i) => voters
       .filter(() => _chunk[i] >= firstVoteRound)
       .map(v => ([_chunk[i], v]))) as any;

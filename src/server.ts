@@ -11,6 +11,7 @@ import {
   getAllEvictions,
   getHighestPayouts,
   existsAddress,
+  getRounds,
 } from "./db.js";
 import Fastify, { FastifyPluginAsync } from "fastify";
 import { parseEnvInt } from "./utils.js";
@@ -94,6 +95,7 @@ export async function start(dbClient: Database) {
               Type.Object({
                 proposer: Type.String(),
                 rnd: Type.Number(),
+                ts: Type.Number(),
                 pp: Type.Number(),
               })
             ),
@@ -227,6 +229,7 @@ export async function start(dbClient: Database) {
             200: Type.Array(
               Type.Object({
                 rnd: Type.Number(),
+                ts: Type.Number(),
                 pp: Type.Optional(Type.Number()),
               })
             ),
@@ -265,6 +268,31 @@ export async function start(dbClient: Database) {
         const addr = request.params.addr;
         const exists = await existsAddress(dbClient, addr);
         return { exists };
+      }
+    );
+
+    server.get(
+      "/v0/round/:rnd",
+      {
+        schema: {
+          params: Type.Object({
+            rnd: Type.Number(),
+          }),
+          response: {
+            200: Type.Object({
+              proposer: Type.String(),
+              rnd: Type.Number(),
+              ts: Type.Number(),
+              pp: Type.Optional(Type.Number()),
+            }),
+          },
+        },
+      },
+      async function (request: any) {
+        const rnd = request.params.rnd;
+        console.log({rnd});
+        const data = await getRounds(dbClient, rnd, rnd);
+        return data ? data[0] : {};
       }
     );
   };

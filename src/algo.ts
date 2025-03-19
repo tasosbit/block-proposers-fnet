@@ -2,6 +2,7 @@ import algosdk from 'algosdk';
 import { sleep } from './utils.js';
 
 interface BlockResult {
+  ts: number;
   proposer: string;
   payout: number;
   voters: string[];
@@ -9,9 +10,10 @@ interface BlockResult {
 }
 
 export async function getBlockDetails(algod: algosdk.Algodv2, rnd: number): Promise<BlockResult> {
-  const { block: { pp = 0, partupdabs = [] }, cert: { prop: { oprop }, vote } } = await algod.block(rnd).do();
+  const { block: { ts, pp = 0, partupdabs = [] }, cert: { prop: { oprop }, vote } } = await algod.block(rnd).do();
   const voters = vote.map(({snd}: any) => algosdk.encodeAddress(snd));
   return {
+    ts,
     proposer: algosdk.encodeAddress(oprop),
     payout: pp,
     voters,
