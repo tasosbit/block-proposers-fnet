@@ -19,10 +19,7 @@ async function multiQuery<T>(algods: algosdk.Algodv2[], queryFn: (algod: algosdk
       if (isLast) {
         throw e;
       }
-      const { response, message } = e as any;
-      const msg = response ?? message ?? e;
-      console.warn(`Algod ${i} query failed, trying next algod`, msg);
-      continue;
+      // console.warn(`Algod ${i} query failed, trying next algod`);
     }
   }
   throw new Error("Never exhausted algods without throw")
@@ -52,5 +49,7 @@ export async function getLastRound(algods: algosdk.Algodv2[]): Promise<number> {
 }
 
 export async function statusAfterRound(algods: algosdk.Algodv2[], rnd: number): Promise<Record<string, any>> {
-  return multiQuery(algods, algod => algod.statusAfterBlock(rnd).do());
+  const response = await multiQuery(algods, algod => algod.statusAfterBlock(rnd).do());
+  await sleep(150) // delay to wait for load balanced backends to catch up
+  return response
 }
