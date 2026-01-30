@@ -6,14 +6,14 @@ import { sleep, chunk, retryable, } from './utils.js';
 import { SYNC_THRESHOLD, DB_CHUNKS, VOTE_ROUNDS_THRESHOLD, NET_CONCURRENCY, EMIT_SPEED_EVERY, } from './config.js';
 import pmap from 'p-map';
 
-export async function needsSync(dbClient: Database, algod: algosdk.Algodv2): Promise<[number, number, boolean]> {
+export async function needsSync(dbClient: Database, algods: algosdk.Algodv2[]): Promise<[number, number, boolean]> {
   const lastDBRound = await getLastDBRound(dbClient);
-  const lastLiveRound = await retryable(() => getLastRound(algod));
+  const lastLiveRound = await retryable(() => getLastRound(algods));
   return [lastDBRound, lastLiveRound, lastLiveRound - lastDBRound > SYNC_THRESHOLD];
 }
 
-async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number) {
-  const { proposer: prop, ts, payout, voters, evictions } = await retryable(() => getBlockDetails(algod, rnd));
+async function runBlock(dbClient: Database, algods: algosdk.Algodv2[], rnd: number) {
+  const { proposer: prop, ts, payout, voters, evictions } = await retryable(() => getBlockDetails(algods, rnd));
   await insertProposer(dbClient, rnd, ts, prop, payout);
   await insertVoters(dbClient, voters.map(v => [rnd, v]));
   if (evictions.length) {
@@ -24,14 +24,14 @@ async function runBlock(dbClient: Database, algod: algosdk.Algodv2, rnd: number)
   }
 }
 
-async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: number[]) {
+async function syncRounds(dbClient: Database, algods: algosdk.Algodv2[], rounds: number[]) {
   const chunks = chunk(rounds, DB_CHUNKS);
   const lastVoteRound = rounds[rounds.length - 1];
   const firstVoteRound = lastVoteRound - VOTE_ROUNDS_THRESHOLD;
   let emitIdx=0;
   let startTime = Date.now();
   for(const _chunk of chunks) {
-    const blockData = await pmap(_chunk, round => retryable(() => getBlockDetails(algod, round)), { concurrency: NET_CONCURRENCY });
+    const blockData = await pmap(_chunk, round => retryable(() => getBlockDetails(algods, round)), { concurrency: NET_CONCURRENCY });
     const tuples: [number, number, string, number][] = blockData.map(({ proposer, ts, payout }, i) => ([_chunk[i], ts, proposer, payout]));
     const voterTuples: [number, string][] = blockData.flatMap(({ voters }, i) => voters
       .filter(() => _chunk[i] >= firstVoteRound)
@@ -54,23 +54,23 @@ async function syncRounds(dbClient: Database, algod: algosdk.Algodv2, rounds: nu
   }
 }
 
-export async function sync(dbClient: Database, algod: algosdk.Algodv2, lastDBRound: number, lastLiveRound: number) {
+export async function sync(dbClient: Database, algods: algosdk.Algodv2[], lastDBRound: number, lastLiveRound: number) {
   const diff = lastLiveRound - lastDBRound;
   const rounds = new Array(diff).fill(null).map((_, i) => lastDBRound + i + 1);
-  await syncRounds(dbClient, algod, rounds);
+  await syncRounds(dbClient, algods, rounds);
   console.log("Sync done");
 }
 
-export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
+export async function trail(dbClient: Database, algods: algosdk.Algodv2[]) {
   let lastDBRound = await getLastDBRound(dbClient);
   while(true) {
     try {
       const nextRound = lastDBRound + 1;
-      await runBlock(dbClient, algod, nextRound);
+      await runBlock(dbClient, algods, nextRound);
       lastDBRound++;
     } catch(e) {
       if ((e as Error).message.includes('failed to retrieve information from the ledger')) {
-        await retryable(() => statusAfterRound(algod, lastDBRound));
+        await retryable(() => statusAfterRound(algods, lastDBRound));
       } else {
         console.error("Uncaught while trailing", (e as Error).message);
         await sleep(1500);
@@ -79,7 +79,7 @@ export async function trail(dbClient: Database, algod: algosdk.Algodv2) {
   }
 }
 
-export async function backfill(dbClient: Database, algod: algosdk.Algodv2) {
+export async function backfill(dbClient: Database, algods: algosdk.Algodv2[]) {
   let maxRound = await getMaxRound(dbClient);
   let records = await countRecords(dbClient);
   let diff = maxRound - records;
@@ -94,7 +94,7 @@ export async function backfill(dbClient: Database, algod: algosdk.Algodv2) {
       }
     }
     console.log("Total to backfill:", missingRounds.length);
-    await syncRounds(dbClient, algod, missingRounds);
+    await syncRounds(dbClient, algods, missingRounds);
     console.log("Backfill done");
     maxRound = await getMaxRound(dbClient);
     records = await countRecords(dbClient);
@@ -106,16 +106,16 @@ export async function backfill(dbClient: Database, algod: algosdk.Algodv2) {
   }
 }
 
-export async function ingest(dbClient: Database, algod: algosdk.Algodv2) {
-  await backfill(dbClient, algod);
+export async function ingest(dbClient: Database, algods: algosdk.Algodv2[]) {
+  await backfill(dbClient, algods);
   while(true) {
-    const [lastDBRound, lastLiveRound, doSync] = await needsSync(dbClient, algod);
+    const [lastDBRound, lastLiveRound, doSync] = await needsSync(dbClient, algods);
     if (!doSync) {
       console.log("Trailing", lastDBRound, '->', lastLiveRound, 'delta', lastLiveRound - lastDBRound);
       break;
     }
     console.log("Syncing", lastDBRound, '->', lastLiveRound, 'delta', lastLiveRound - lastDBRound, 'concurrency', NET_CONCURRENCY);
-    await sync(dbClient, algod, lastDBRound, lastLiveRound);
+    await sync(dbClient, algods, lastDBRound, lastLiveRound);
   }
-  await trail(dbClient, algod);
+  await trail(dbClient, algods);
 }

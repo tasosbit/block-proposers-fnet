@@ -1,4 +1,4 @@
-import { algod } from './config.js';
+import { algods } from './config.js';
 import { getOrCreateDB, } from './db.js';
 import { ingest } from './ingest.js';
 import { start } from './server.js';
@@ -9,7 +9,7 @@ import { lockPIDFile, releasePIDFile } from './pid.js';
 const expectedGenesisID = process.argv[2];
 const dbID = process.argv[3] ?? expectedGenesisID;
 
-const genesisID = await retryable(() => getGenesisID(algod));
+const genesisID = await retryable(() => getGenesisID(algods));
 
 if (genesisID !== expectedGenesisID) {
   throw new Error(`Genesis ID mismatch, expected ${expectedGenesisID} found ${genesisID}`);
@@ -19,7 +19,7 @@ lockPIDFile(dbID);
 
 const dbClient = await getOrCreateDB(dbID);
 
-ingest(dbClient, algod);
+ingest(dbClient, algods);
 
 start(dbClient);
 
