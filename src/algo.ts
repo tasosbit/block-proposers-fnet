@@ -19,7 +19,9 @@ async function multiQuery<T>(algods: algosdk.Algodv2[], queryFn: (algod: algosdk
       if (isLast) {
         throw e;
       }
-      console.warn("Algod query failed, trying next algod", e);
+      const { response, message } = e as any;
+      const msg = response ?? message ?? e;
+      console.warn(`Algod ${i} query failed, trying next algod`, msg);
       continue;
     }
   }
